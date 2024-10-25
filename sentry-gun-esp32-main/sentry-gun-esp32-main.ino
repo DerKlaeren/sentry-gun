@@ -166,7 +166,7 @@ void webSocketEvent(uint8_t *payload, size_t length) {
         servoPitch.write(pitchAngle);
     } else if (command == "fire") {
         fireNerfGun();
-    } else if (commane == "stop") {
+    } else if (command == "stop") {
 
     }
 }
