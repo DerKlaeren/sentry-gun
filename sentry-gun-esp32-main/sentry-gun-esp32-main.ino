@@ -2,6 +2,8 @@
 #include <Ultrasonic.h>  // Bibliothek für Ultraschallsensor
 #include <WiFi.h>        // WiFi für Video- und Steuerungsübertragung
 #include <WebServer.h>   // Webserver-Bibliothek
+#include <WebSocketsServer.h> // Websocket-Bibliothek
+
 
 
 // Pin-Definitionen
@@ -29,6 +31,9 @@ Ultrasonic ultrasonic(ultrasonicTriggerPin, ultrasonicEchoPin);
 
 // Webserver auf Port 80
 WebServer server(80);
+// WebSocketserver auf Port 81 
+WebSocketsServer webSocket = WebSocketsServer(81); 
+
 
 // Serielle Verbindung zur ESP32-CAM
 HardwareSerial SerialCam(2);
@@ -69,6 +74,10 @@ void setup() {
   server.on("/stream", HTTP_GET, streamVideo);
   server.on("/control", HTTP_GET, handleControl);
   server.begin();
+
+  // Websocket starten
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
 }
 
 void loop() {
@@ -87,6 +96,7 @@ void loop() {
 
   // Webserver-Client-Handling
   server.handleClient();
+  webSocket.loop();
 }
 
 //  Funktion zur Steuerung der Dreh- und Höheneinstellung des Geschützes
@@ -116,6 +126,28 @@ void handleControl() {
   }
 
   server.send(200, "text/plain", "Command received");
+}
+
+// Websocket Steuerung
+void webSocketEvent(uint8_t *payload, size_t length) {
+    String command = String((char*)payload);
+    if (command == "left") {
+        yawAngle = max(0, yawAngle - 10);
+        servoYaw.write(yawAngle);
+    } else if (command == "right") {
+        yawAngle = min(180, yawAngle + 10);
+        servoYaw.write(yawAngle);
+    } else if (command == "up") {
+        pitchAngle = max(0, pitchAngle - 10);
+        servoPitch.write(pitchAngle);
+    } else if (command == "down") {
+        pitchAngle = min(180, pitchAngle + 10);
+        servoPitch.write(pitchAngle);
+    } else if (command == "fire") {
+        fireNerfGun();
+    } else if (commane == "stop") {
+      
+    }
 }
 
 // Funktion zum Feuern der Nerf-Darts
@@ -162,14 +194,18 @@ void streamVideo() {
   }
 }
 
-// HTML-Seite mit Steuerungsbuttons
+// HTML-Seite mit Steuerungsbuttons und initialisierung des Websockets
 void handleRoot() {
-  String html = "<html><body><h1>Nerf Gun Turret Control</h1>";
-  html += "<button onclick=\"location.href='/control?command=left'\">Drehen Links</button>";
-  html += "<button onclick=\"location.href='/control?command=right'\">Drehen Rechts</button>";
-  html += "<button onclick=\"location.href='/control?command=up'\">Neigen Hoch</button>";
-  html += "<button onclick=\"location.href='/control?command=down'\">Neigen Runter</button>";
-  html += "<button onclick=\"location.href='/control?command=fire'\">Feuer</button>";
-  html += "<br><br><img src='/stream' width='400' height='300'></body></html>";
-  server.send(200, "text/html", html);
+    String html = "<html><body><h1>Nerf Gun Turret Control</h1>";
+    html += "<button onmousedown=\"sendCommand('left')\" onmouseup=\"stopCommand()\">Drehen Links</button>";
+    html += "<button onmousedown=\"sendCommand('right')\" onmouseup=\"stopCommand()\">Drehen Rechts</button>";
+    html += "<button onmousedown=\"sendCommand('up')\" onmouseup=\"stopCommand()\">Neigen Hoch</button>";
+    html += "<button onmousedown=\"sendCommand('down')\" onmouseup=\"stopCommand()\">Neigen Runter</button>";
+    html += "<button onclick=\"sendCommand('fire')\">Feuer</button>";
+    html += "<br><br><img src='/stream' width='400' height='300'>";
+    html += "<script>var websocket = new WebSocket('ws://' + location.hostname + ':81');"
+            "function sendCommand(command) { websocket.send(command); }"
+            "function stopCommand() { websocket.send('stop'); }</script>";
+    html += "</body></html>";
+    server.send(200, "text/html", html);
 }

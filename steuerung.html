@@ -1,0 +1,23 @@
+<html>
+<body>
+    <h1>Sentry Gun Steuerung</h1>
+    <button onmousedown="sendCommand('left')" onmouseup="stopCommand()">Drehen Links</button>
+    <button onmousedown="sendCommand('right')" onmouseup="stopCommand()">Drehen Rechts</button>
+    <button onmousedown="sendCommand('up')" onmouseup="stopCommand()">Neigen Hoch</button>
+    <button onmousedown="sendCommand('down')" onmouseup="stopCommand()">Neigen Runter</button>
+    <button onclick="sendCommand('fire')">Feuer</button>
+    <br><br>
+    <img src='/stream' width='400' height='300'>
+    <script>
+        var websocket = new WebSocket('ws://' + location.hostname + ':81');
+        
+        function sendCommand(command) {
+            websocket.send(command);
+        }
+
+        function stopCommand() {
+            websocket.send('stop'); 
+	}  
+	</script>
+</body>
+</html>
