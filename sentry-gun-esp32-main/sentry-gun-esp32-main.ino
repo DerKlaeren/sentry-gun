@@ -3,6 +3,8 @@
 #include <WiFi.h>        // WiFi für Video- und Steuerungsübertragung
 #include <WebServer.h>   // Webserver-Bibliothek
 #include <WebSocketsServer.h> // Websocket-Bibliothek
+#include <ESPmDNS.h> // DNS Service für Hostnamen
+
 
 
 
@@ -19,6 +21,9 @@ const int ultrasonicEchoPin = 4;
 // WiFi-Daten
 const char* ssid = "YOUR_SSID";
 const char* password = "YOUR_PASSWORD";
+
+// Hostnamen fürs Netwerk
+const char* HOSTNAME = "sentrygun";
 
 // Servo- und ESC-Objekte erstellen
 Servo servoYaw;
@@ -78,6 +83,15 @@ void setup() {
   // Websocket starten
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
+
+  if (!MDNS.begin(HOSTNAME)) { // 
+        Serial.println("Fehler beim Starten von mDNS");
+        while (1) {
+            delay(1000);
+        }
+    }
+    Serial.println("mDNS gestartet. Erreichbar unter " + HOSTNAME + ".local");
+
 }
 
 void loop() {
@@ -146,7 +160,7 @@ void webSocketEvent(uint8_t *payload, size_t length) {
     } else if (command == "fire") {
         fireNerfGun();
     } else if (commane == "stop") {
-      
+
     }
 }
 
