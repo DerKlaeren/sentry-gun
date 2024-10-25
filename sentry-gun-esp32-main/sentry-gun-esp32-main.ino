@@ -12,10 +12,13 @@
 // Pin-Definitionen
 const int servoYawPin = 18;    // Servo für Yaw (Drehung)
 const int servoPitchPin = 19;  // Servo für Pitch (Höheneinstellung)
+const int servoReloadPin = 21; // Servo fürs Nachladen 
 const int escMotor1Pin = 22;   // ESC für Motor 1
 const int escMotor2Pin = 23;   // ESC für Motor 2
 const int ultrasonicTriggerPin = 5;
 const int ultrasonicEchoPin = 4;
+
+
 #define RXD2 16  // RX zur ESP32-CAM
 #define TXD2 17  // TX zur ESP32-CAM
 
@@ -28,6 +31,7 @@ Servo servoYaw;
 Servo servoPitch;
 Servo escMotor1;
 Servo escMotor2;
+Servo servoReload;
 
 // Ultraschallsensor-Objekt
 Ultrasonic ultrasonic(ultrasonicTriggerPin, ultrasonicEchoPin);
@@ -44,10 +48,13 @@ HardwareSerial SerialCam(2);
 // Variablen zur Steuerung
 // int targetDistance = 100; // Beispielwert für Zielentfernung in cm
 
-// Steuerungsvariablen
+// Steuerungsvariablen mit initialen winkel
+// 0 - Rotation gegen den UZ
+// 90 - Stillstand
+// 180 - Rotatin mit UZ
 int yawAngle = 90;    // Yaw (Drehwinkel)
 int pitchAngle = 90;  // Pitch (Neigungswinkel)
-
+int reloadAngle = 90;
 
 void setup() {
   // Serielle Kommunikation für Debugging
@@ -76,6 +83,7 @@ void setup() {
   // Servos initialisieren
   servoYaw.attach(servoYawPin);
   servoPitch.attach(servoPitchPin);
+  servoReload.attach(servoReloadPin);
 
   // ESC initialisieren
   escMotor1.attach(escMotor1Pin, 1000, 2000);  // PWM für ESCs (1000-2000 us)
@@ -176,8 +184,19 @@ void webSocketEvent(uint8_t *payload, size_t length) {
 
 // Funktion zum Feuern der Nerf-Darts
 void fireNerfGun() {
+  // Motoren starten
   escMotor1.write(180);
-  escMotor2.write(180);
+  escMotor2.write(180); 
+  delay(200);
+
+  // Simple ladebewegung
+  servoReload.write(0);
+  delay(200);
+  servoReload.write(180);
+  delay(200);
+  servoReload.write(90);
+
+  // Feuer
   delay(500);
   escMotor1.write(90);
   escMotor2.write(90);
