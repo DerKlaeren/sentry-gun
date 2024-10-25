@@ -4,6 +4,7 @@
 #include <WebServer.h>   // Webserver-Bibliothek
 #include <WebSocketsServer.h> // Websocket-Bibliothek
 #include <ESPmDNS.h> // DNS Service für Hostnamen
+#include <WiFiManager.h> // WiFiManager Bibliothek
 
 
 
@@ -18,12 +19,9 @@ const int ultrasonicEchoPin = 4;
 #define RXD2 16  // RX zur ESP32-CAM
 #define TXD2 17  // TX zur ESP32-CAM
 
-// WiFi-Daten
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
-
-// Hostnamen fürs Netwerk
+// Hostnamen fürs Netzwerk
 const char* HOSTNAME = "sentrygun";
+
 
 // Servo- und ESC-Objekte erstellen
 Servo servoYaw;
@@ -56,13 +54,22 @@ void setup() {
   Serial.begin(115200);
   SerialCam.begin(115200, SERIAL_8N1, RXD2, TXD2);  // Serielle Verbindung zur ESP32-CAM
 
-  // WiFi verbinden
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // WiFiManager Initialisierung
+  WiFiManager wifiManager;
+  // Statische IP-Konfiguration für den Access Point
+  IPAddress apIP(10, 10, 10, 1);
+  IPAddress gateway(10, 10, 10, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  // Statische IP für den AP konfigurieren
+  wifiManager.setAPStaticIPConfig(apIP, gateway, subnet);
+  
+  // WiFi-Konfigurationsportal öffnen, wenn keine gespeicherten Netzwerke vorhanden sind
+  if (!wifiManager.autoConnect("ESP32-ConfigAP", )) {
+    Serial.println("WLAN-Verbindung fehlgeschlagen! Starte neu...");
+    delay(3000);
+    ESP.restart();
   }
-  Serial.println("WiFi verbunden!");
+  Serial.println("WLAN verbunden!");
   Serial.print("IP-Adresse: ");
   Serial.println(WiFi.localIP());
 
@@ -84,14 +91,14 @@ void setup() {
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 
-  if (!MDNS.begin(HOSTNAME)) { // 
-        Serial.println("Fehler beim Starten von mDNS");
-        while (1) {
-            delay(1000);
-        }
+  // mDNS-Dienst starten
+  if (!MDNS.begin(HOSTNAME)) {
+    Serial.println("Fehler beim Starten von mDNS");
+    while (1) {
+      delay(1000);
     }
-    Serial.println("mDNS gestartet. Erreichbar unter " + HOSTNAME + ".local");
-
+  }
+  Serial.println("mDNS gestartet. Erreichbar unter " + String(HOSTNAME) + ".local");
 }
 
 void loop() {
