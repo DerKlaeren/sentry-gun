@@ -169,6 +169,9 @@ void webSocketEvent(uint8_t *payload, size_t length) {
     } else if (command == "stop") {
 
     }
+    // Sende den aktuellen Winkel zurück an den Client
+    String response = "Yaw: " + String(yawAngle) + ", Pitch: " + String(pitchAngle);
+    webSocket.sendTXT(num, response);
 }
 
 // Funktion zum Feuern der Nerf-Darts
