@@ -1,17 +1,18 @@
-#include <ESP32Servo.h>      // Bibliothek für Servo-Steuerung auf ESP32
-#include <Ultrasonic.h>      // Bibliothek für Ultraschallsensor
-#include <WiFi.h>            // WiFi für Video- und Steuerungsübertragung
-#include <WebServer.h>       // Webserver-Bibliothek
+#include <ESP32Servo.h>  // Bibliothek für Servo-Steuerung auf ESP32
+#include <Ultrasonic.h>  // Bibliothek für Ultraschallsensor
+#include <WiFi.h>        // WiFi für Video- und Steuerungsübertragung
+#include <WebServer.h>   // Webserver-Bibliothek
+
 
 // Pin-Definitionen
-const int servoYawPin = 18;        // Servo für Yaw (Drehung)
-const int servoPitchPin = 19;      // Servo für Pitch (Höheneinstellung)
-const int escMotor1Pin = 22;       // ESC für Motor 1
-const int escMotor2Pin = 23;       // ESC für Motor 2
+const int servoYawPin = 18;    // Servo für Yaw (Drehung)
+const int servoPitchPin = 19;  // Servo für Pitch (Höheneinstellung)
+const int escMotor1Pin = 22;   // ESC für Motor 1
+const int escMotor2Pin = 23;   // ESC für Motor 2
 const int ultrasonicTriggerPin = 5;
 const int ultrasonicEchoPin = 4;
-#define RXD2 16                    // RX zur ESP32-CAM
-#define TXD2 17                    // TX zur ESP32-CAM
+#define RXD2 16  // RX zur ESP32-CAM
+#define TXD2 17  // TX zur ESP32-CAM
 
 // WiFi-Daten
 const char* ssid = "YOUR_SSID";
@@ -33,12 +34,17 @@ WebServer server(80);
 HardwareSerial SerialCam(2);
 
 // Variablen zur Steuerung
-int targetDistance = 100; // Beispielwert für Zielentfernung in cm
+// int targetDistance = 100; // Beispielwert für Zielentfernung in cm
+
+// Steuerungsvariablen
+int yawAngle = 90;    // Yaw (Drehwinkel)
+int pitchAngle = 90;  // Pitch (Neigungswinkel)
+
 
 void setup() {
   // Serielle Kommunikation für Debugging
   Serial.begin(115200);
-  SerialCam.begin(115200, SERIAL_8N1, RXD2, TXD2); // Serielle Verbindung zur ESP32-CAM
+  SerialCam.begin(115200, SERIAL_8N1, RXD2, TXD2);  // Serielle Verbindung zur ESP32-CAM
 
   // WiFi verbinden
   WiFi.begin(ssid, password);
@@ -55,58 +61,74 @@ void setup() {
   servoPitch.attach(servoPitchPin);
 
   // ESC initialisieren
-  escMotor1.attach(escMotor1Pin, 1000, 2000); // PWM für ESCs (1000-2000 us)
+  escMotor1.attach(escMotor1Pin, 1000, 2000);  // PWM für ESCs (1000-2000 us)
   escMotor2.attach(escMotor2Pin, 1000, 2000);
 
-  // Webserver-Endpunkt für den Stream
+  // Webserver-Endpunkte einrichten
+  server.on("/", HTTP_GET, handleRoot);
   server.on("/stream", HTTP_GET, streamVideo);
+  server.on("/control", HTTP_GET, handleControl);
   server.begin();
-
-  // Initialwerte der Servos setzen
-  servoYaw.write(90);  // Neutralposition
-  servoPitch.write(90);
 }
 
 void loop() {
-  // Abstand messen und Geschützsteuerung
-  int distance = ultrasonic.read();
-  Serial.print("Abstand: ");
-  Serial.println(distance);
+  //  Abstand messen und Geschützsteuerung
+  //  int distance = ultrasonic.read();
+  //  Serial.print("Abstand: ");
+  //  Serial.println(distance);
 
-  // Schießvorgang auslösen, wenn das Ziel nahe genug ist
-  if (distance <= targetDistance) {
-    fireNerfGun();
-  }
+  //  Schießvorgang auslösen, wenn das Ziel nahe genug ist
+  //  if (distance <= targetDistance) {
+  //    fireNerfGun();
+  //  }
 
-  // Beispielhafter Aufruf für das Ausrichten des Turms
-  controlTurret(90, 45); // Beispielhaft: 90° Yaw, 45° Pitch
+  //  Beispielhafter Aufruf für das Ausrichten des Turms
+  //  controlTurret(90, 45); // Beispielhaft: 90° Yaw, 45° Pitch
 
   // Webserver-Client-Handling
   server.handleClient();
-
-  delay(100); // kurze Wartezeit
 }
 
-// Funktion zur Steuerung der Dreh- und Höheneinstellung des Geschützes
-void controlTurret(int yawAngle, int pitchAngle) {
-  servoYaw.write(yawAngle);
-  servoPitch.write(pitchAngle);
+//  Funktion zur Steuerung der Dreh- und Höheneinstellung des Geschützes
+//  void controlTurret(int yawAngle, int pitchAngle) {
+//    servoYaw.write(yawAngle);
+//    servoPitch.write(pitchAngle);
+//  }
+
+// Steuerungsbefehle verarbeiten
+void handleControl() {
+  String command = server.arg("command");
+
+  if (command == "left") {
+    yawAngle = max(0, yawAngle - 10);
+    servoYaw.write(yawAngle);
+  } else if (command == "right") {
+    yawAngle = min(180, yawAngle + 10);
+    servoYaw.write(yawAngle);
+  } else if (command == "up") {
+    pitchAngle = max(0, pitchAngle - 10);
+    servoPitch.write(pitchAngle);
+  } else if (command == "down") {
+    pitchAngle = min(180, pitchAngle + 10);
+    servoPitch.write(pitchAngle);
+  } else if (command == "fire") {
+    fireNerfGun();
+  }
+
+  server.send(200, "text/plain", "Command received");
 }
 
 // Funktion zum Feuern der Nerf-Darts
 void fireNerfGun() {
-  // Motoren für den Antrieb einschalten
-  escMotor1.write(180); // Vollgas
+  escMotor1.write(180);
   escMotor2.write(180);
-  
-  delay(500); // kurze Verzögerung
-  
-  // Motoren stoppen
-  escMotor1.write(90); // Stopp
+  delay(500);
+  escMotor1.write(90);
   escMotor2.write(90);
-  
   Serial.println("Feuer!");
 }
+
+
 
 // Funktion zum Streamen des Videos als MJPEG
 void streamVideo() {
@@ -136,6 +158,18 @@ void streamVideo() {
       client.write(imgBuf, imgSize);
       client.println();
     }
-    delay(30); // Pause zur Bildstabilisierung
+    delay(30);  // Pause zur Bildstabilisierung
   }
+}
+
+// HTML-Seite mit Steuerungsbuttons
+void handleRoot() {
+  String html = "<html><body><h1>Nerf Gun Turret Control</h1>";
+  html += "<button onclick=\"location.href='/control?command=left'\">Drehen Links</button>";
+  html += "<button onclick=\"location.href='/control?command=right'\">Drehen Rechts</button>";
+  html += "<button onclick=\"location.href='/control?command=up'\">Neigen Hoch</button>";
+  html += "<button onclick=\"location.href='/control?command=down'\">Neigen Runter</button>";
+  html += "<button onclick=\"location.href='/control?command=fire'\">Feuer</button>";
+  html += "<br><br><img src='/stream' width='400' height='300'></body></html>";
+  server.send(200, "text/html", html);
 }
